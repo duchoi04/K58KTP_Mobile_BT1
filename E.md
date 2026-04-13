@@ -1,4 +1,4 @@
-2. Kiểm tra dự án
+E. TRIỂN KHAI(LEVEL TEST) ỨNG DỤNG
 
 2.1. Sau khi hoàn tất thì sử dụng lệnh: docker compose restart để khởi động lại các dịch vụ và kiểm tra bằng cách truy cập vào các cổng của nginx và nodered trên trình duyệt:
    
