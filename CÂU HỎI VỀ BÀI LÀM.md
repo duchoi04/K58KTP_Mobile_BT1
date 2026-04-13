@@ -1,63 +1,69 @@
-1. Tại sao phải dùng Nginx làm Reverse Proxy mà không trỏ thẳng Tunnel vào Node-RED?
-Dù bạn hoàn toàn có thể trỏ thẳng Tunnel vào Node-RED, nhưng trong môi trường thực tế (Production), Nginx đóng vai trò như một "Lễ tân kiêm Bảo vệ":
+Câu hỏi về bài làm?
 
-Phân luồng (Routing): Nginx giúp bạn chạy nhiều dịch vụ trên cùng một tên miền. Ví dụ: Khách vào / thì Nginx trả về file HTML (Giao diện), khách gọi /api/ thì Nginx mới chuyển yêu cầu (proxy_pass) cho Node-RED xử lý logic.
+1.  Tại sao phải dùng Nginx làm Reverse Proxy mà không trỏ thẳng Tunnel vào Node-RED?
 
-Hiệu năng: Nginx được thiết kế để phục vụ các file tĩnh (HTML, CSS, JS, hình ảnh) với tốc độ chớp nhoáng. Node-RED là một môi trường chạy logic (Node.js), nó không giỏi và không tối ưu trong việc host file tĩnh.
+Vì tính bảo mật và độ linh hoạt của nginx: nginx có thể xử lí chứng chỉ SSL và điều hướng / về trang web tĩnh còn /api thì mới về nodered. Nếu ta trỏ thằng về nodered thì sẽ rất khó quản lí nhiều dịch vụ trong 1 tên miền
 
-Bảo mật & Ẩn danh: Người dùng bên ngoài chỉ biết đến Nginx. Kiến trúc thực sự bên trong (như cổng 1880 của Node-RED) được giấu kín hoàn toàn.
+2.  Sự khác biệt giữa việc Mount file và Mount thư mục trong Docker là gì?
 
-2. Sự khác biệt giữa việc Mount file và Mount thư mục trong Docker?
-Mount Thư mục (- ./myweb:/usr/share/nginx/html): Ánh xạ toàn bộ nội dung của một thư mục. Nếu bạn tạo thêm file mới, xóa file cũ ở máy Host (máy thật), thư mục bên trong container cũng cập nhật y hệt. Rất phù hợp để chứa source code web.
+Mount file: Chỉ gắn một file duy nhất (như nginx.conf). Khi sửa file này ở máy thật, file trong container đổi theo.
 
-Mount File (- ./nginx.conf:/etc/nginx/nginx.conf): Chỉ ánh xạ duy nhất một file cụ thể, ghi đè lên file có sẵn trong container mà không làm ảnh hưởng đến các file khác nằm cùng thư mục đó bên trong container. Rất phù hợp để nạp file cấu hình.
 
-3. Thay đổi file index.html ở máy Host, web có đổi ngay không?
-Có, nội dung sẽ thay đổi ngay lập tức đối với container (vì cơ chế Bind Mount tạo ra một liên kết trực tiếp theo thời gian thực giữa máy host và container).
+Mount thư mục: Gắn cả một folder (như ./myweb). Mọi file mới thêm vào hoặc xóa đi trong folder ở máy thật đều được cập nhật đồng bộ vào container.
 
-Lưu ý nhỏ: Trên góc độ người dùng (End-user), đôi khi họ phải bấm Ctrl + F5 hoặc xóa cache trình duyệt / cache Cloudflare thì mới thấy sự thay đổi, nhưng về mặt hệ thống máy chủ thì nó đã nhận ngay lập tức.
 
-4. Lệnh restart: always và restart: unless-stopped để làm gì?
-Đây là cơ chế tự phục hồi (High Availability) của Docker:
+3.  Nếu thay đổi file index.html ở máy Ubuntu, nội dung trên web có thay đổi ngay không? Tại sao?
 
-always: Docker sẽ LUÔN LUÔN tự động khởi động lại container này trong mọi trường hợp (server bị cúp điện bật lại, container bị crash do lỗi code, v.v.). Thậm chí nếu bạn tự tay gõ lệnh docker stop, lần tới khi Docker service khởi động, nó vẫn sẽ tự bật lại.
+Có đổi ngay. Vì ta đang dùng Volumes. Nginx trong container đọc trực tiếp dữ liệu từ thư mục trên máy Ubuntu. Khi file ở máy Ubuntu thay đổi, Nginx thấy nội dung mới ngay lập tức mà không cần khởi động lại container.
 
-unless-stopped: Tương tự như always, nhưng thông minh hơn một chút. Nếu bạn tự tay gõ lệnh docker stop để chủ động tắt nó đi, thì dù server có khởi động lại, Docker cũng sẽ tôn trọng quyết định của bạn và không tự bật nó lên nữa.
+4.Docker-compose.yml khai báo các services có phần restart: always hoặc restart: unless-stopped : chúng để làm gì?
 
-5. Khai báo chung 1 network và lợi ích
-Lợi ích: Các container nằm trong cùng một network nội bộ có thể "nhìn thấy" và giao tiếp với nhau bằng Tên dịch vụ (Service name) thay vì phải dùng địa chỉ IP. Giúp hệ thống an toàn (cô lập với bên ngoài) và code cấu hình không bao giờ bị lỗi khi IP thay đổi.
+Always: Container tự khởi động lại trong mọi trường hợp (lỗi, server bị reboot, hoặc bị tắt thủ công).
 
-Cách cấu hình (Ví dụ):
 
-YAML
-services:
-  nginx:
-    networks:
-      - my_app_net
-  nodered:
-    networks:
-      - my_app_net
+Unless-stopped: Tương tự như always, nhưng nếu bạn chủ động gõ lệnh docker stop thì nó sẽ không tự bật lại cho đến khi bạn khởi động nó thủ công.
 
-# Khai báo ở cuối file
+
+5.  Cách khai báo để tất cả các services đều dùng chung 1 network? lợi ích của việc khai báo này là gì? Sửa đổi file docker-compose để tất cả các service đều dùng chung 1 network.
+
+
+Cách khai báo:
+
 networks:
-  my_app_net:
-    driver: bridge
-6. Bảo mật Cloudflare Token với .env và .gitignore
-Token của Tunnel chính là "Chìa khóa vạn năng" mở cửa thẳng vào mạng nội bộ của bạn.
 
-Nếu bạn push trực tiếp đoạn mã eyJh... lên Github ở chế độ Public, các con bot quét mã độc có thể nhặt được nó trong vài giây. Kẻ gian có thể dùng token đó cấu hình một Tunnel trên máy họ, chiếm đoạt tên miền của bạn hoặc thâm nhập vào hệ thống ảo của bạn.
+my-net
 
-Giải pháp: Đưa token vào file .env (ví dụ: TUNNEL_TOKEN=eyJh...), trong docker-compose.yml gọi biến ${TUNNEL_TOKEN}. Cuối cùng, khai báo tên file .env vào trong file .gitignore. Git sẽ lờ file này đi và không bao giờ đẩy nó lên Internet.
+services:
 
-7. Tại sao nên thêm hậu tố :ro (Read-only) khi mount file Nginx?
-:ro viết tắt của Read-Only (Chỉ đọc). Ví dụ: - ./nginx.conf:/etc/nginx/nginx.conf:ro.
-Bảo mật hệ thống luôn tuân theo nguyên tắc "Quyền hạn tối thiểu". Container Nginx chỉ cần ĐỌC file cấu hình để hoạt động, nó không có lý do gì để SỬA file đó. Thêm :ro giúp bảo vệ file gốc trên máy của bạn không bị thay đổi lỡ như container Nginx bị hacker tấn công chiếm quyền hoặc có lỗi phần mềm bên trong làm hỏng file.
+nodered:
 
-8. Dùng Cloudflare Tunnel có cần mở cổng (Port mapping) nữa không?
-Hoàn toàn KHÔNG! Đây chính là sức mạnh tuyệt đối của kiến trúc Zero Trust.
+networks: [my-net]
 
-Không cần ánh xạ cổng ports: - "8080:80" (chúng ta chỉ dùng nó lúc nãy để debug nội bộ xem Nginx có sống hay không).
+nginx:
 
-Không cần mở cổng (Port Forwarding) trên Modem Wi-Fi hay Firewall.
+networks: [my-net]
 
-Cloudflare Tunnel hoạt động theo cơ chế Outbound Connection (Chủ động gọi từ trong máy tính của bạn ra ngoài Cloudflare). Do không có cổng nào được mở ra Internet, các hacker có dùng tool quét IP (Port Scanner) cũng sẽ thấy máy chủ của bạn "tàng hình" hoàn toàn.
+tunnel:
+
+networks: [my-net]
+
+
+
+Lợi ích: Các container có thể "gọi tên" nhau (DNS nội bộ) thay vì dùng IP, tăng bảo mật vì không cần mở cổng ra bên ngoài.
+
+
+6.  Tìm cách đưa Cloudflare Token vào trong file .env rồi sau đó thêm .env vào file .gitignore trước khi push code lên github. Tại sao nói đây là điều quan trọng về bảo mật mã nguồn?
+
+Cách làm: Tạo file .env ghi CF_TOKEN=eyJh.... Trong compose ghi token: ${CF_TOKEN}. Thêm .env vào .gitignore.
+
+
+Tầm quan trọng: Ngăn chặn việc lộ thông tin nhạy cảm (Token, mật khẩu) lên GitHub. Nếu lộ Token, kẻ xấu có thể chiếm quyền điều hướng tên miền.
+
+
+7.  Tại sao chúng ta nên thêm hậu tố :ro khi mount file cấu hình Nginx?
+
+ro (Read-Only): Cho phép container chỉ được đọc file cấu hình chứ không được phép sửa/xóa. Điều này bảo vệ file gốc trên Ubuntu nếu container bị hacker tấn công.
+
+8.  Khi dùng Cloudflare Tunnel: có cần thiết phải mở cổng cho các service nữa không?
+
+Không cần thiết. Cloudflare Tunnel tạo kết nối ngược (outbound) từ máy ảo lên Cloudflare. ta có thể xóa bỏ toàn bộ phần ports: trong file compose, hệ thống vẫn chạy bình thường và cực kỳ bảo mật vì không ai có thể mò vào IP máy ảo.
