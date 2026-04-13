@@ -1,1 +1,0 @@
-# K58KTP_Mobile_BT1
