@@ -1,4 +1,4 @@
-A. Đăng ký tên miền xịn cho cá nhân:
+A. ĐĂNG KÝ TÊN MIỀN XỊN CHO CÁ NHÂN
 
 1. Đăng ký domain xịn (có thể dùng của mắt bão, tên miền *.id.vn đang miễn phí cho mọi công dân việt nam <= 23 tuổi, *.io.vn : giá 30k vnđ/năm)
 
